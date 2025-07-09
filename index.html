@@ -76,8 +76,8 @@
 
         // Create Rubik's cube structure (3x3x3)
         function createRubiksCube() {
-            const cubeSize = 0.6;
-            const spacing = 0.65;
+            const cubeSize = 2; // Same size as main cube
+            const spacing = 2.1; // Adjusted spacing for larger cubes
             
             for (let x = -1; x <= 1; x++) {
                 for (let y = -1; y <= 1; y++) {
@@ -182,8 +182,8 @@
                     // Animate position
                     cube.position.lerp(cube.targetPosition, adjustedProgress * 0.05);
                     
-                    // Animate scale
-                    const scale = adjustedProgress * 0.6;
+                    // Animate scale - now starts from 0 and scales to 1 (same size as main cube)
+                    const scale = adjustedProgress;
                     cube.scale.set(scale, scale, scale);
                     
                     // Sync rotation with main cube
@@ -194,7 +194,7 @@
                 });
                 
                 // Adjust camera for better view of Rubik's cube
-                const targetCameraZ = 5 + (transformProgress * 3);
+                const targetCameraZ = 5 + (transformProgress * 5); // Pull back more for larger cubes
                 camera.position.z += (targetCameraZ - camera.position.z) * 0.02;
             } else {
                 // Hide Rubik's cube pieces when not scrolled
