@@ -2,7 +2,19 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <        // Create Rubik's cube structure (complete 3x3x3)
+        function createRubiksCube() {
+            const cubeSize = 1.02; // Slightly larger for overlap and perfect sticking
+            const spacing = 1.0; // Perfect spacing for seamless 3x3x3 connection
+            
+            for (let x = -1; x <= 1; x++) {
+                for (let y = -1; y <= 1; y++) {
+                    for (let z = -1; z <= 1; z++) {
+                        // Skip the center cube (it's our main cube)
+                        if (x === 0 && y === 0 && z === 0) continue;
+                        
+                        // Skip cubes on the right side (x = 1)
+                        if (x === 1) continue;"viewport" content="width=device-width, initial-scale=1.0">
     <title>Spinning Cube - Three.js</title>
     <style>
         body {
@@ -11,7 +23,7 @@
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             overflow-x: hidden;
             font-family: Arial, sans-serif;
-            height: 200vh; /* Make page scrollable */
+            height: 500vh; /* Increased scrollable height for more control */
         }
         
         #container {
@@ -57,9 +69,10 @@
         let scrollProgress = 0;
         let rubiksCubes = [];
         let mainCube;
+        let ballGeometry;
 
         // Create main cube geometry and materials
-        const geometry = new THREE.BoxGeometry(1.98, 1.98, 1.98); // Slightly smaller to avoid z-fighting
+        const geometry = new THREE.BoxGeometry(1.02, 1.02, 1.02); // Slightly larger for overlap and perfect connection
         
         // Create materials for each face with different colors
         const materials = [
@@ -74,42 +87,113 @@
         mainCube = new THREE.Mesh(geometry, materials);
         scene.add(mainCube);
 
-        // Create Rubik's cube structure (limited to 13 cubes)
+        // Create ball geometry for floating balls transformation
+        ballGeometry = new THREE.SphereGeometry(0.5, 16, 16);
+
+        // Create Rubik's cube structure (without right side cubes)
         function createRubiksCube() {
-            const cubeSize = 1.98; // Same size as main cube, slightly smaller to avoid z-fighting
-            const spacing = 2.0; // Perfect spacing for seamless connection
+            const cubeSize = 1.02; // Slightly larger for overlap and perfect sticking
+            const spacing = 1.0; // Perfect spacing for seamless 3x3x3 connection
             
-            let cubeCount = 0;
-            const maxCubes = 13;
-            
+            let cubeIndex = 0;
             for (let x = -1; x <= 1; x++) {
                 for (let y = -1; y <= 1; y++) {
                     for (let z = -1; z <= 1; z++) {
                         // Skip the center cube (it's our main cube)
                         if (x === 0 && y === 0 && z === 0) continue;
                         
-                        // Only create 13 cubes
-                        if (cubeCount >= maxCubes) break;
+                        // Skip the right side cubes (x = 1)
+                        if (x === 1) continue;
                         
                         const cubeGeo = new THREE.BoxGeometry(cubeSize, cubeSize, cubeSize);
                         const cubeMat = materials.map(mat => mat.clone());
                         const cube = new THREE.Mesh(cubeGeo, cubeMat);
                         
                         // Set initial position (spread out)
-                        const initialSpreadPosition = new THREE.Vector3(x * spacing * 5, y * spacing * 5, z * spacing * 5);
+                        const initialSpreadPosition = new THREE.Vector3(x * spacing * 8, y * spacing * 8, z * spacing * 8);
                         cube.position.copy(initialSpreadPosition);
                         cube.initialPosition = initialSpreadPosition;
                         cube.targetPosition = new THREE.Vector3(x * spacing, y * spacing, z * spacing);
+                        
+                        // Calculate pyramid position
+                        cube.pyramidPosition = calculatePyramidPosition(cubeIndex);
+                        
+                        // Calculate floating ball position
+                        cube.ballPosition = calculateBallPosition(cubeIndex);
+                        
+                        // Create ball mesh for transformation
+                        const ballMat = new THREE.MeshLambertMaterial({ 
+                            color: materials[Math.floor(Math.random() * materials.length)].color 
+                        });
+                        cube.ballMesh = new THREE.Mesh(ballGeometry, ballMat);
+                        cube.ballMesh.visible = false;
+                        scene.add(cube.ballMesh);
+                        
                         cube.visible = false;
                         
                         scene.add(cube);
                         rubiksCubes.push(cube);
-                        cubeCount++;
+                        cubeIndex++;
                     }
-                    if (cubeCount >= maxCubes) break;
                 }
-                if (cubeCount >= maxCubes) break;
             }
+        }
+
+        // Calculate pyramid positions
+        function calculatePyramidPosition(index) {
+            // Create a pyramid with 4 layers
+            const pyramidLayers = [
+                // Bottom layer (3x3)
+                [
+                    new THREE.Vector3(-1, -2, -1), new THREE.Vector3(0, -2, -1), new THREE.Vector3(-1, -2, 0),
+                    new THREE.Vector3(0, -2, 0), new THREE.Vector3(-1, -2, 1), new THREE.Vector3(0, -2, 1),
+                    new THREE.Vector3(1, -2, -1), new THREE.Vector3(1, -2, 0), new THREE.Vector3(1, -2, 1)
+                ],
+                // Second layer (2x2)
+                [
+                    new THREE.Vector3(-0.5, -1, -0.5), new THREE.Vector3(0.5, -1, -0.5),
+                    new THREE.Vector3(-0.5, -1, 0.5), new THREE.Vector3(0.5, -1, 0.5)
+                ],
+                // Third layer (1x1)
+                [
+                    new THREE.Vector3(0, 0, 0)
+                ],
+                // Top layer (1 cube)
+                [
+                    new THREE.Vector3(0, 1, 0)
+                ]
+            ];
+            
+            // Flatten the pyramid layers and assign positions
+            const allPyramidPositions = pyramidLayers.flat();
+            
+            // If we have more cubes than pyramid positions, distribute extras around the base
+            if (index < allPyramidPositions.length) {
+                return allPyramidPositions[index];
+            } else {
+                // Place extra cubes around the base in a circle
+                const angle = (index - allPyramidPositions.length) * (Math.PI * 2 / 6);
+                const radius = 2.5;
+                return new THREE.Vector3(
+                    Math.cos(angle) * radius,
+                    -2.5,
+                    Math.sin(angle) * radius
+                );
+            }
+        }
+
+        // Calculate floating ball positions
+        function calculateBallPosition(index) {
+            // Create floating positions in a cloud-like formation
+            const radius = 4 + Math.random() * 6; // Random radius between 4-10
+            const theta = (index * 0.618) * Math.PI * 2; // Golden angle for spiral distribution
+            const phi = Math.acos(1 - 2 * Math.random()); // Random phi for sphere distribution
+            
+            return new THREE.Vector3(
+                radius * Math.sin(phi) * Math.cos(theta),
+                (Math.random() - 0.5) * 8, // Random Y between -4 and 4
+                radius * Math.sin(phi) * Math.sin(theta)
+            );
         }
 
         createRubiksCube();
@@ -176,7 +260,9 @@
             
             // Transform to Rubik's cube based on scroll progress
             if (scrollProgress > 0.1) {
-                const transformProgress = Math.min((scrollProgress - 0.1) / 0.8, 1);
+                const transformProgress = Math.min((scrollProgress - 0.1) / 0.3, 1); // Rubik's cube phase (0.1 to 0.4)
+                const pyramidProgress = Math.max(0, Math.min(1, (scrollProgress - 0.4) / 0.3)); // Pyramid phase (0.4 to 0.7)
+                const ballProgress = Math.max(0, Math.min(1, (scrollProgress - 0.7) / 0.3)); // Ball phase (0.7 to 1.0)
                 
                 // Scale down the main cube
                 const mainCubeScale = 1 - (transformProgress * 0.4);
@@ -190,30 +276,91 @@
                     const delay = index * 0.03;
                     const adjustedProgress = Math.max(0, Math.min(1, (transformProgress - delay) / 0.5));
                     
-                    // Animate position from initial spread to target position
-                    cube.position.lerpVectors(cube.initialPosition, cube.targetPosition, adjustedProgress);
+                    // Determine current target position based on scroll phase
+                    let currentTargetPosition;
+                    if (ballProgress > 0) {
+                        // Show balls, hide cubes
+                        cube.visible = false;
+                        cube.ballMesh.visible = true;
+                        
+                        // Interpolate between pyramid position and ball position
+                        currentTargetPosition = new THREE.Vector3();
+                        const fromPosition = pyramidProgress > 0 ? cube.pyramidPosition : cube.targetPosition;
+                        currentTargetPosition.lerpVectors(fromPosition, cube.ballPosition, ballProgress);
+                        
+                        // Set ball position and add floating animation
+                        cube.ballMesh.position.copy(currentTargetPosition);
+                        cube.ballMesh.position.y += Math.sin(Date.now() * 0.001 + index * 0.5) * 0.5;
+                        
+                        // Add rotation to balls
+                        cube.ballMesh.rotation.x += 0.02;
+                        cube.ballMesh.rotation.y += 0.01;
+                        
+                        // Scale balls based on progress
+                        const ballScale = adjustedProgress * (1 + ballProgress * 0.5);
+                        cube.ballMesh.scale.set(ballScale, ballScale, ballScale);
+                        
+                    } else if (pyramidProgress > 0) {
+                        // Show cubes, hide balls
+                        cube.ballMesh.visible = false;
+                        
+                        // Interpolate between Rubik's cube position and pyramid position
+                        currentTargetPosition = new THREE.Vector3();
+                        currentTargetPosition.lerpVectors(cube.targetPosition, cube.pyramidPosition, pyramidProgress);
+                    } else {
+                        // Show cubes, hide balls
+                        cube.ballMesh.visible = false;
+                        currentTargetPosition = cube.targetPosition;
+                    }
                     
-                    // Animate scale - now starts from 0 and scales to 1 (same size as main cube)
-                    const scale = adjustedProgress;
-                    cube.scale.set(scale, scale, scale);
-                    
-                    // Sync rotation with main cube
-                    if (!isSpinning) {
-                        cube.rotation.x = mainCube.rotation.x;
-                        cube.rotation.y = mainCube.rotation.y;
+                    // Animate cube position (only if not in ball mode)
+                    if (ballProgress === 0) {
+                        cube.position.lerpVectors(cube.initialPosition, currentTargetPosition, adjustedProgress);
+                        
+                        // Animate scale - now starts from 0 and scales to 1 (same size as main cube)
+                        const scale = adjustedProgress;
+                        cube.scale.set(scale, scale, scale);
+                        
+                        // Sync rotation with main cube, but add some pyramid-specific rotation
+                        if (!isSpinning) {
+                            cube.rotation.x = mainCube.rotation.x + (pyramidProgress * 0.5);
+                            cube.rotation.y = mainCube.rotation.y + (pyramidProgress * 0.3);
+                        }
                     }
                 });
                 
-                // Adjust camera for better view of Rubik's cube
-                const targetCameraZ = 5 + (transformProgress * 5); // Pull back more for larger cubes
-                camera.position.z += (targetCameraZ - camera.position.z) * 0.02;
+                // Adjust camera for better view - move further back for each transformation
+                const baseCameraZ = 5 + (transformProgress * 3);
+                const pyramidCameraZ = baseCameraZ + (pyramidProgress * 2);
+                const ballCameraZ = pyramidCameraZ + (ballProgress * 6);
+                camera.position.z += (ballCameraZ - camera.position.z) * 0.02;
+                
+                // Move main cube to pyramid top when pyramid forms, or hide it during ball phase
+                if (ballProgress > 0) {
+                    // Hide main cube during ball phase
+                    mainCube.visible = false;
+                } else {
+                    mainCube.visible = true;
+                    if (pyramidProgress > 0) {
+                        const pyramidTopPosition = new THREE.Vector3(0, 1, 0);
+                        mainCube.position.lerpVectors(
+                            new THREE.Vector3(0, Math.sin(Date.now() * 0.001) * 0.3, 0),
+                            pyramidTopPosition,
+                            pyramidProgress
+                        );
+                    }
+                }
             } else {
                 // When scrolling back up, animate cubes back to initial spread positions
                 rubiksCubes.forEach((cube, index) => {
-                    if (cube.visible) {
+                    if (cube.visible || cube.ballMesh.visible) {
                         // Stagger the retreat animation
                         const delay = index * 0.02;
                         const retreatProgress = Math.max(0, Math.min(1, (0.1 - scrollProgress + delay) / 0.1));
+                        
+                        // Hide balls and show cubes
+                        cube.ballMesh.visible = false;
+                        cube.visible = true;
                         
                         // Animate position from target back to initial spread position
                         cube.position.lerpVectors(cube.targetPosition, cube.initialPosition, retreatProgress);
@@ -229,8 +376,9 @@
                     }
                 });
                 
-                // Reset main cube scale
+                // Reset main cube scale and visibility
                 mainCube.scale.set(1, 1, 1);
+                mainCube.visible = true;
                 
                 // Reset camera position
                 camera.position.z += (5 - camera.position.z) * 0.05;
