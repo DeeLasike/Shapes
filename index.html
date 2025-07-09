@@ -9,14 +9,17 @@
             margin: 0;
             padding: 0;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            overflow: hidden;
+            overflow-x: hidden;
             font-family: Arial, sans-serif;
+            height: 200vh; /* Make page scrollable */
         }
         
         #container {
-            position: relative;
+            position: fixed;
             width: 100vw;
             height: 100vh;
+            top: 0;
+            left: 0;
         }
         
         #info {
@@ -49,7 +52,13 @@
         renderer.setClearColor(0x000000, 0);
         document.getElementById('container').appendChild(renderer.domElement);
 
-        // Create cube geometry and materials
+        // Animation state variables
+        let isSpinning = true;
+        let scrollProgress = 0;
+        let rubiksCubes = [];
+        let mainCube;
+
+        // Create main cube geometry and materials
         const geometry = new THREE.BoxGeometry(2, 2, 2);
         
         // Create materials for each face with different colors
@@ -62,8 +71,37 @@
             new THREE.MeshLambertMaterial({ color: 0x00ffff })  // Back face - Cyan
         ];
         
-        const cube = new THREE.Mesh(geometry, materials);
-        scene.add(cube);
+        mainCube = new THREE.Mesh(geometry, materials);
+        scene.add(mainCube);
+
+        // Create Rubik's cube structure (3x3x3)
+        function createRubiksCube() {
+            const cubeSize = 0.6;
+            const spacing = 0.65;
+            
+            for (let x = -1; x <= 1; x++) {
+                for (let y = -1; y <= 1; y++) {
+                    for (let z = -1; z <= 1; z++) {
+                        // Skip the center cube (it's our main cube)
+                        if (x === 0 && y === 0 && z === 0) continue;
+                        
+                        const cubeGeo = new THREE.BoxGeometry(cubeSize, cubeSize, cubeSize);
+                        const cubeMat = materials.map(mat => mat.clone());
+                        const cube = new THREE.Mesh(cubeGeo, cubeMat);
+                        
+                        // Set initial position (spread out)
+                        cube.position.set(x * spacing * 5, y * spacing * 5, z * spacing * 5);
+                        cube.targetPosition = new THREE.Vector3(x * spacing, y * spacing, z * spacing);
+                        cube.visible = false;
+                        
+                        scene.add(cube);
+                        rubiksCubes.push(cube);
+                    }
+                }
+            }
+        }
+
+        createRubiksCube();
 
         // Add lighting
         const ambientLight = new THREE.AmbientLight(0x404040, 0.6);
@@ -91,6 +129,20 @@
             targetRotationY = mouseX * 0.5;
         });
 
+        // Scroll event listener
+        window.addEventListener('scroll', () => {
+            const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+            const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
+            scrollProgress = Math.min(scrollTop / maxScroll, 1);
+            
+            // Stop spinning when scrolling starts
+            if (scrollProgress > 0.1) {
+                isSpinning = false;
+            } else {
+                isSpinning = true;
+            }
+        });
+
         // Handle window resize
         window.addEventListener('resize', () => {
             camera.aspect = window.innerWidth / window.innerHeight;
@@ -102,17 +154,65 @@
         function animate() {
             requestAnimationFrame(animate);
             
-            // Auto-rotate the cube
-            cube.rotation.x += 0.01;
-            cube.rotation.y += 0.01;
+            // Auto-rotate the main cube only if spinning
+            if (isSpinning) {
+                mainCube.rotation.x += 0.01;
+                mainCube.rotation.y += 0.01;
+                
+                // Add subtle floating animation
+                mainCube.position.y = Math.sin(Date.now() * 0.001) * 0.3;
+            }
+            
+            // Transform to Rubik's cube based on scroll progress
+            if (scrollProgress > 0.1) {
+                const transformProgress = Math.min((scrollProgress - 0.1) / 0.8, 1);
+                
+                // Scale down the main cube
+                const mainCubeScale = 1 - (transformProgress * 0.4);
+                mainCube.scale.set(mainCubeScale, mainCubeScale, mainCubeScale);
+                
+                // Show and animate the Rubik's cube pieces
+                rubiksCubes.forEach((cube, index) => {
+                    cube.visible = true;
+                    
+                    // Stagger the appearance of cubes
+                    const delay = index * 0.03;
+                    const adjustedProgress = Math.max(0, Math.min(1, (transformProgress - delay) / 0.5));
+                    
+                    // Animate position
+                    cube.position.lerp(cube.targetPosition, adjustedProgress * 0.05);
+                    
+                    // Animate scale
+                    const scale = adjustedProgress * 0.6;
+                    cube.scale.set(scale, scale, scale);
+                    
+                    // Sync rotation with main cube
+                    if (!isSpinning) {
+                        cube.rotation.x = mainCube.rotation.x;
+                        cube.rotation.y = mainCube.rotation.y;
+                    }
+                });
+                
+                // Adjust camera for better view of Rubik's cube
+                const targetCameraZ = 5 + (transformProgress * 3);
+                camera.position.z += (targetCameraZ - camera.position.z) * 0.02;
+            } else {
+                // Hide Rubik's cube pieces when not scrolled
+                rubiksCubes.forEach(cube => {
+                    cube.visible = false;
+                });
+                
+                // Reset main cube scale
+                mainCube.scale.set(1, 1, 1);
+                
+                // Reset camera position
+                camera.position.z += (5 - camera.position.z) * 0.05;
+            }
             
             // Add mouse interaction to camera
             camera.position.x += (targetRotationY - camera.position.x) * 0.05;
             camera.position.y += (targetRotationX - camera.position.y) * 0.05;
             camera.lookAt(scene.position);
-            
-            // Add subtle floating animation
-            cube.position.y = Math.sin(Date.now() * 0.001) * 0.3;
             
             renderer.render(scene, camera);
         }
