@@ -30,7 +30,7 @@ function animateCube(cube, index, phases, adjustedProgress) {
     let currentTargetPosition;
     
     if (pyramidTransformProgress > 0) {
-        // Pyramid transform phase - balls transform into spinning pyramids
+        // Pyramid transform phase - balls fade away and pyramids appear
         cube.visible = false;
         cube.ballMesh.visible = true;
         cube.pyramidMesh.visible = true;
@@ -43,17 +43,24 @@ function animateCube(cube, index, phases, adjustedProgress) {
         cube.ballMesh.position.y += Math.sin(Date.now() * 0.001 + index * 0.5) * 0.5;
         cube.pyramidMesh.position.y += Math.sin(Date.now() * 0.001 + index * 0.5) * 0.5;
         
-        // Add spinning animation to pyramids
-        cube.pyramidMesh.rotation.x += 0.02;
-        cube.pyramidMesh.rotation.y += 0.03;
-        cube.pyramidMesh.rotation.z += 0.01;
+        // Point pyramids toward top left corner while spinning
+        // Calculate direction to top left corner (negative x, positive y, negative z for depth)
+        const targetDirection = new THREE.Vector3(-1, 1, -0.5).normalize();
         
-        // Smooth morphing transition - balls shrink as pyramids grow
-        const ballScale = (1 - pyramidTransformProgress) * 1.2;
-        cube.ballMesh.scale.set(ballScale, ballScale, ballScale);
+        // Base rotation to point toward top left
+        const baseRotationX = Math.atan2(targetDirection.y, targetDirection.z);
+        const baseRotationY = Math.atan2(-targetDirection.x, Math.sqrt(targetDirection.y * targetDirection.y + targetDirection.z * targetDirection.z));
         
-        const pyramidScale = pyramidTransformProgress * 1.5;
-        cube.pyramidMesh.scale.set(pyramidScale, pyramidScale, pyramidScale);
+        // Add spinning animation on top of the base rotation
+        cube.pyramidMesh.rotation.x = baseRotationX + Math.sin(Date.now() * 0.002) * 0.3;
+        cube.pyramidMesh.rotation.y = baseRotationY + Math.cos(Date.now() * 0.003) * 0.3;
+        cube.pyramidMesh.rotation.z = Math.sin(Date.now() * 0.001) * 0.2;
+        
+        // Balls fade away while maintaining their size
+        cube.ballMesh.scale.set(1.2, 1.2, 1.2);
+        
+        // Pyramids appear at full size
+        cube.pyramidMesh.scale.set(1.5, 1.5, 1.5);
         
         // Smooth opacity transition - balls fade out as pyramids fade in
         cube.ballMesh.material.opacity = 1 - pyramidTransformProgress;
