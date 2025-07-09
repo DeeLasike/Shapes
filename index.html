@@ -90,7 +90,9 @@
                         const cube = new THREE.Mesh(cubeGeo, cubeMat);
                         
                         // Set initial position (spread out)
-                        cube.position.set(x * spacing * 5, y * spacing * 5, z * spacing * 5);
+                        const initialSpreadPosition = new THREE.Vector3(x * spacing * 5, y * spacing * 5, z * spacing * 5);
+                        cube.position.copy(initialSpreadPosition);
+                        cube.initialPosition = initialSpreadPosition;
                         cube.targetPosition = new THREE.Vector3(x * spacing, y * spacing, z * spacing);
                         cube.visible = false;
                         
@@ -179,8 +181,8 @@
                     const delay = index * 0.03;
                     const adjustedProgress = Math.max(0, Math.min(1, (transformProgress - delay) / 0.5));
                     
-                    // Animate position
-                    cube.position.lerp(cube.targetPosition, adjustedProgress * 0.05);
+                    // Animate position from initial spread to target position
+                    cube.position.lerpVectors(cube.initialPosition, cube.targetPosition, adjustedProgress);
                     
                     // Animate scale - now starts from 0 and scales to 1 (same size as main cube)
                     const scale = adjustedProgress;
@@ -197,9 +199,25 @@
                 const targetCameraZ = 5 + (transformProgress * 5); // Pull back more for larger cubes
                 camera.position.z += (targetCameraZ - camera.position.z) * 0.02;
             } else {
-                // Hide Rubik's cube pieces when not scrolled
-                rubiksCubes.forEach(cube => {
-                    cube.visible = false;
+                // When scrolling back up, animate cubes back to initial spread positions
+                rubiksCubes.forEach((cube, index) => {
+                    if (cube.visible) {
+                        // Stagger the retreat animation
+                        const delay = index * 0.02;
+                        const retreatProgress = Math.max(0, Math.min(1, (0.1 - scrollProgress + delay) / 0.1));
+                        
+                        // Animate position from target back to initial spread position
+                        cube.position.lerpVectors(cube.targetPosition, cube.initialPosition, retreatProgress);
+                        
+                        // Animate scale down
+                        const scale = 1 - retreatProgress;
+                        cube.scale.set(scale, scale, scale);
+                        
+                        // Hide cube when it's fully retreated
+                        if (retreatProgress >= 1) {
+                            cube.visible = false;
+                        }
+                    }
                 });
                 
                 // Reset main cube scale
