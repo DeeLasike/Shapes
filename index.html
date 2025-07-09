@@ -23,7 +23,7 @@
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             overflow-x: hidden;
             font-family: Arial, sans-serif;
-            height: 500vh; /* Increased scrollable height for more control */
+            height: 250vh; /* Reduced scrollable height for less scrolling */
         }
         
         #container {
@@ -121,9 +121,9 @@
                         // Calculate floating ball position
                         cube.ballPosition = calculateBallPosition(cubeIndex);
                         
-                        // Create ball mesh for transformation
+                        // Create ball mesh for transformation - use same color as cube
                         const ballMat = new THREE.MeshLambertMaterial({ 
-                            color: materials[Math.floor(Math.random() * materials.length)].color 
+                            color: cubeMat[0].color // Use the same color as the cube's first material
                         });
                         cube.ballMesh = new THREE.Mesh(ballGeometry, ballMat);
                         cube.ballMesh.visible = false;
@@ -231,7 +231,7 @@
             scrollProgress = Math.min(scrollTop / maxScroll, 1);
             
             // Stop spinning when scrolling starts
-            if (scrollProgress > 0.1) {
+            if (scrollProgress > 0.05) {
                 isSpinning = false;
             } else {
                 isSpinning = true;
@@ -259,10 +259,10 @@
             }
             
             // Transform to Rubik's cube based on scroll progress
-            if (scrollProgress > 0.1) {
-                const transformProgress = Math.min((scrollProgress - 0.1) / 0.3, 1); // Rubik's cube phase (0.1 to 0.4)
-                const pyramidProgress = Math.max(0, Math.min(1, (scrollProgress - 0.4) / 0.3)); // Pyramid phase (0.4 to 0.7)
-                const ballProgress = Math.max(0, Math.min(1, (scrollProgress - 0.7) / 0.3)); // Ball phase (0.7 to 1.0)
+            if (scrollProgress > 0.05) {
+                const transformProgress = Math.min((scrollProgress - 0.05) / 0.25, 1); // Rubik's cube phase (0.05 to 0.30)
+                const pyramidProgress = Math.max(0, Math.min(1, (scrollProgress - 0.30) / 0.25)); // Pyramid phase (0.30 to 0.55)
+                const ballProgress = Math.max(0, Math.min(1, (scrollProgress - 0.55) / 0.25)); // Ball phase (0.55 to 0.80)
                 
                 // Scale down the main cube
                 const mainCubeScale = 1 - (transformProgress * 0.4);
@@ -279,8 +279,8 @@
                     // Determine current target position based on scroll phase
                     let currentTargetPosition;
                     if (ballProgress > 0) {
-                        // Show balls, hide cubes
-                        cube.visible = false;
+                        // Keep cubes visible during ball transition for smooth morphing
+                        cube.visible = true;
                         cube.ballMesh.visible = true;
                         
                         // Interpolate between pyramid position and ball position
@@ -288,21 +288,40 @@
                         const fromPosition = pyramidProgress > 0 ? cube.pyramidPosition : cube.targetPosition;
                         currentTargetPosition.lerpVectors(fromPosition, cube.ballPosition, ballProgress);
                         
-                        // Set ball position and add floating animation
-                        cube.ballMesh.position.copy(currentTargetPosition);
-                        cube.ballMesh.position.y += Math.sin(Date.now() * 0.001 + index * 0.5) * 0.5;
+                        // Sync positions for smooth morphing
+                        cube.position.lerpVectors(cube.initialPosition, currentTargetPosition, adjustedProgress);
+                        cube.ballMesh.position.copy(cube.position);
+                        cube.ballMesh.position.y += Math.sin(Date.now() * 0.001 + index * 0.5) * 0.5 * ballProgress;
                         
                         // Add rotation to balls
-                        cube.ballMesh.rotation.x += 0.02;
-                        cube.ballMesh.rotation.y += 0.01;
+                        cube.ballMesh.rotation.x += 0.02 * ballProgress;
+                        cube.ballMesh.rotation.y += 0.01 * ballProgress;
                         
-                        // Scale balls based on progress
-                        const ballScale = adjustedProgress * (1 + ballProgress * 0.5);
+                        // Smooth scale transition - cubes shrink as balls grow
+                        const cubeScale = adjustedProgress * (1 - ballProgress * 0.8);
+                        cube.scale.set(cubeScale, cubeScale, cubeScale);
+                        
+                        const ballScale = adjustedProgress * ballProgress * 1.2;
                         cube.ballMesh.scale.set(ballScale, ballScale, ballScale);
+                        
+                        // Smooth opacity transition
+                        cube.material.forEach(mat => {
+                            mat.opacity = 1 - ballProgress;
+                            mat.transparent = true;
+                        });
+                        
+                        cube.ballMesh.material.opacity = ballProgress;
+                        cube.ballMesh.material.transparent = true;
                         
                     } else if (pyramidProgress > 0) {
                         // Show cubes, hide balls
                         cube.ballMesh.visible = false;
+                        
+                        // Reset opacity for cubes
+                        cube.material.forEach(mat => {
+                            mat.opacity = 1;
+                            mat.transparent = false;
+                        });
                         
                         // Interpolate between Rubik's cube position and pyramid position
                         currentTargetPosition = new THREE.Vector3();
@@ -310,10 +329,17 @@
                     } else {
                         // Show cubes, hide balls
                         cube.ballMesh.visible = false;
+                        
+                        // Reset opacity for cubes
+                        cube.material.forEach(mat => {
+                            mat.opacity = 1;
+                            mat.transparent = false;
+                        });
+                        
                         currentTargetPosition = cube.targetPosition;
                     }
                     
-                    // Animate cube position (only if not in ball mode)
+                    // Animate cube position (always animate, but scale determines visibility)
                     if (ballProgress === 0) {
                         cube.position.lerpVectors(cube.initialPosition, currentTargetPosition, adjustedProgress);
                         
@@ -322,6 +348,12 @@
                         cube.scale.set(scale, scale, scale);
                         
                         // Sync rotation with main cube, but add some pyramid-specific rotation
+                        if (!isSpinning) {
+                            cube.rotation.x = mainCube.rotation.x + (pyramidProgress * 0.5);
+                            cube.rotation.y = mainCube.rotation.y + (pyramidProgress * 0.3);
+                        }
+                    } else {
+                        // During ball transition, sync rotation with main cube
                         if (!isSpinning) {
                             cube.rotation.x = mainCube.rotation.x + (pyramidProgress * 0.5);
                             cube.rotation.y = mainCube.rotation.y + (pyramidProgress * 0.3);
@@ -356,11 +388,17 @@
                     if (cube.visible || cube.ballMesh.visible) {
                         // Stagger the retreat animation
                         const delay = index * 0.02;
-                        const retreatProgress = Math.max(0, Math.min(1, (0.1 - scrollProgress + delay) / 0.1));
+                        const retreatProgress = Math.max(0, Math.min(1, (0.05 - scrollProgress + delay) / 0.05));
                         
                         // Hide balls and show cubes
                         cube.ballMesh.visible = false;
                         cube.visible = true;
+                        
+                        // Reset opacity and transparency
+                        cube.material.forEach(mat => {
+                            mat.opacity = 1;
+                            mat.transparent = false;
+                        });
                         
                         // Animate position from target back to initial spread position
                         cube.position.lerpVectors(cube.targetPosition, cube.initialPosition, retreatProgress);
