@@ -58,18 +58,24 @@ function createRubiksCube(scene, materials, ballGeometry, pyramidGeometry) {
                 
                 // Create ball mesh for transformation
                 const ballMat = new THREE.MeshLambertMaterial({ 
-                    color: cubeMat[0].color
+                    color: cubeMat[0].color,
+                    transparent: true,
+                    opacity: 0
                 });
                 cube.ballMesh = new THREE.Mesh(ballGeometry, ballMat);
                 cube.ballMesh.visible = false;
+                cube.ballMesh.scale.set(0, 0, 0);
                 scene.add(cube.ballMesh);
                 
                 // Create pyramid mesh for transformation
                 const pyramidMat = new THREE.MeshLambertMaterial({ 
-                    color: cubeMat[0].color
+                    color: cubeMat[0].color,
+                    transparent: true,
+                    opacity: 0
                 });
                 cube.pyramidMesh = new THREE.Mesh(pyramidGeometry, pyramidMat);
                 cube.pyramidMesh.visible = false;
+                cube.pyramidMesh.scale.set(0, 0, 0);
                 scene.add(cube.pyramidMesh);
                 
                 cube.visible = false;

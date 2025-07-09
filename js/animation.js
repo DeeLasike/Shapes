@@ -32,22 +32,33 @@ function animateCube(cube, index, phases, adjustedProgress) {
     if (pyramidTransformProgress > 0) {
         // Pyramid transform phase - balls transform into spinning pyramids
         cube.visible = false;
-        cube.ballMesh.visible = false;
+        cube.ballMesh.visible = true;
         cube.pyramidMesh.visible = true;
         
-        // Keep pyramids at the same position as balls were
+        // Keep both at the same position as balls
+        cube.ballMesh.position.copy(cube.ballPosition);
         cube.pyramidMesh.position.copy(cube.ballPosition);
+        
+        // Add floating animation to both
+        cube.ballMesh.position.y += Math.sin(Date.now() * 0.001 + index * 0.5) * 0.5;
+        cube.pyramidMesh.position.y += Math.sin(Date.now() * 0.001 + index * 0.5) * 0.5;
         
         // Add spinning animation to pyramids
         cube.pyramidMesh.rotation.x += 0.02;
         cube.pyramidMesh.rotation.y += 0.03;
         cube.pyramidMesh.rotation.z += 0.01;
         
-        // Scale pyramids as they transform from balls
+        // Smooth morphing transition - balls shrink as pyramids grow
+        const ballScale = (1 - pyramidTransformProgress) * 1.2;
+        cube.ballMesh.scale.set(ballScale, ballScale, ballScale);
+        
         const pyramidScale = pyramidTransformProgress * 1.5;
         cube.pyramidMesh.scale.set(pyramidScale, pyramidScale, pyramidScale);
         
-        // Fade in pyramids
+        // Smooth opacity transition - balls fade out as pyramids fade in
+        cube.ballMesh.material.opacity = 1 - pyramidTransformProgress;
+        cube.ballMesh.material.transparent = true;
+        
         cube.pyramidMesh.material.opacity = pyramidTransformProgress;
         cube.pyramidMesh.material.transparent = true;
         
@@ -55,6 +66,7 @@ function animateCube(cube, index, phases, adjustedProgress) {
         // Keep cubes visible during ball transition for smooth morphing
         cube.visible = true;
         cube.ballMesh.visible = true;
+        cube.pyramidMesh.visible = false;
         
         // Interpolate between pyramid position and ball position
         currentTargetPosition = new THREE.Vector3();
