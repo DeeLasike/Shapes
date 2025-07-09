@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spinning Cube - Three.js</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+        }
+        
+        #container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+        }
+        
+        #info {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: white;
+            z-index: 100;
+            font-size: 18px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+        
+        canvas {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <div id="info">
+            <h2>Three.js Spinning Cube</h2>
+            <p>Move your mouse to rotate the camera!</p>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        // Scene, camera, and renderer setup
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setClearColor(0x000000, 0);
+        document.getElementById('container').appendChild(renderer.domElement);
+
+        // Create cube geometry and materials
+        const geometry = new THREE.BoxGeometry(2, 2, 2);
+        
+        // Create materials for each face with different colors
+        const materials = [
+            new THREE.MeshLambertMaterial({ color: 0xff0000 }), // Right face - Red
+            new THREE.MeshLambertMaterial({ color: 0x00ff00 }), // Left face - Green
+            new THREE.MeshLambertMaterial({ color: 0x0000ff }), // Top face - Blue
+            new THREE.MeshLambertMaterial({ color: 0xffff00 }), // Bottom face - Yellow
+            new THREE.MeshLambertMaterial({ color: 0xff00ff }), // Front face - Magenta
+            new THREE.MeshLambertMaterial({ color: 0x00ffff })  // Back face - Cyan
+        ];
+        
+        const cube = new THREE.Mesh(geometry, materials);
+        scene.add(cube);
+
+        // Add lighting
+        const ambientLight = new THREE.AmbientLight(0x404040, 0.6);
+        scene.add(ambientLight);
+        
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+        directionalLight.position.set(5, 5, 5);
+        scene.add(directionalLight);
+
+        // Position camera
+        camera.position.z = 5;
+
+        // Mouse interaction variables
+        let mouseX = 0;
+        let mouseY = 0;
+        let targetRotationX = 0;
+        let targetRotationY = 0;
+
+        // Mouse move event listener
+        document.addEventListener('mousemove', (event) => {
+            mouseX = (event.clientX / window.innerWidth) * 2 - 1;
+            mouseY = -(event.clientY / window.innerHeight) * 2 + 1;
+            
+            targetRotationX = mouseY * 0.5;
+            targetRotationY = mouseX * 0.5;
+        });
+
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // Animation loop
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            // Auto-rotate the cube
+            cube.rotation.x += 0.01;
+            cube.rotation.y += 0.01;
+            
+            // Add mouse interaction to camera
+            camera.position.x += (targetRotationY - camera.position.x) * 0.05;
+            camera.position.y += (targetRotationX - camera.position.y) * 0.05;
+            camera.lookAt(scene.position);
+            
+            // Add subtle floating animation
+            cube.position.y = Math.sin(Date.now() * 0.001) * 0.3;
+            
+            renderer.render(scene, camera);
+        }
+
+        // Start animation
+        animate();
+    </script>
+</body>
+</html>
