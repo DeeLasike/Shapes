@@ -59,7 +59,7 @@
         let mainCube;
 
         // Create main cube geometry and materials
-        const geometry = new THREE.BoxGeometry(2, 2, 2);
+        const geometry = new THREE.BoxGeometry(1.98, 1.98, 1.98); // Slightly smaller to avoid z-fighting
         
         // Create materials for each face with different colors
         const materials = [
@@ -74,16 +74,22 @@
         mainCube = new THREE.Mesh(geometry, materials);
         scene.add(mainCube);
 
-        // Create Rubik's cube structure (3x3x3)
+        // Create Rubik's cube structure (limited to 13 cubes)
         function createRubiksCube() {
-            const cubeSize = 2; // Same size as main cube
-            const spacing = 2.1; // Adjusted spacing for larger cubes
+            const cubeSize = 1.98; // Same size as main cube, slightly smaller to avoid z-fighting
+            const spacing = 2.0; // Perfect spacing for seamless connection
+            
+            let cubeCount = 0;
+            const maxCubes = 13;
             
             for (let x = -1; x <= 1; x++) {
                 for (let y = -1; y <= 1; y++) {
                     for (let z = -1; z <= 1; z++) {
                         // Skip the center cube (it's our main cube)
                         if (x === 0 && y === 0 && z === 0) continue;
+                        
+                        // Only create 13 cubes
+                        if (cubeCount >= maxCubes) break;
                         
                         const cubeGeo = new THREE.BoxGeometry(cubeSize, cubeSize, cubeSize);
                         const cubeMat = materials.map(mat => mat.clone());
@@ -98,8 +104,11 @@
                         
                         scene.add(cube);
                         rubiksCubes.push(cube);
+                        cubeCount++;
                     }
+                    if (cubeCount >= maxCubes) break;
                 }
+                if (cubeCount >= maxCubes) break;
             }
         }
 
