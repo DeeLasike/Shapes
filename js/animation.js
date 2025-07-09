@@ -6,10 +6,10 @@ let mainCube;
 
 // Animation phases and progress calculations
 function calculateAnimationPhases(scrollProgress) {
-    const transformProgress = Math.min((scrollProgress - 0.05) / 0.20, 1); // Rubik's cube phase (0.05 to 0.25)
-    const pyramidProgress = Math.max(0, Math.min(1, (scrollProgress - 0.25) / 0.20)); // Pyramid phase (0.25 to 0.45)
-    const ballProgress = Math.max(0, Math.min(1, (scrollProgress - 0.45) / 0.20)); // Ball phase (0.45 to 0.65)
-    const pyramidTransformProgress = Math.max(0, Math.min(1, (scrollProgress - 0.65) / 0.35)); // Pyramid transform phase (0.65 to 1.00)
+    const transformProgress = Math.min((scrollProgress - 0.05) / 0.30, 1); // Rubik's cube phase (0.05 to 0.35) - increased from 0.20
+    const pyramidProgress = Math.max(0, Math.min(1, (scrollProgress - 0.35) / 0.25, 1)); // Pyramid phase (0.35 to 0.60) - increased from 0.20
+    const ballProgress = Math.max(0, Math.min(1, (scrollProgress - 0.60) / 0.25, 1)); // Ball phase (0.60 to 0.85) - increased from 0.20
+    const pyramidTransformProgress = Math.max(0, Math.min(1, (scrollProgress - 0.85) / 0.15)); // Pyramid transform phase (0.85 to 1.00) - reduced from 0.35
     
     return { transformProgress, pyramidProgress, ballProgress, pyramidTransformProgress };
 }

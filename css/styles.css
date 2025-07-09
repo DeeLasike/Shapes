@@ -4,7 +4,7 @@ body {
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     overflow-x: hidden;
     font-family: Arial, sans-serif;
-    height: 250vh; /* Reduced scrollable height for less scrolling */
+    height: 400vh; /* Increased scrollable height for more scrolling */
 }
 
 #container {
