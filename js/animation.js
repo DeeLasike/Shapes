@@ -43,18 +43,46 @@ function animateCube(cube, index, phases, adjustedProgress) {
         cube.ballMesh.position.y += Math.sin(Date.now() * 0.001 + index * 0.5) * 0.5;
         cube.pyramidMesh.position.y += Math.sin(Date.now() * 0.001 + index * 0.5) * 0.5;
         
-        // Point pyramids toward top left corner while spinning
-        // Calculate direction to top left corner (negative x, positive y, negative z for depth)
-        const targetDirection = new THREE.Vector3(-1, 1, -0.5).normalize();
+        // Make pyramids jiggle like jelly when cursor is touching them
+        // Convert mouse screen coordinates to world coordinates
+        const mouseWorldX = mouseX * 10; // Scale to world space
+        const mouseWorldY = mouseY * 10;
         
-        // Base rotation to point toward top left
-        const baseRotationX = Math.atan2(targetDirection.y, targetDirection.z);
-        const baseRotationY = Math.atan2(-targetDirection.x, Math.sqrt(targetDirection.y * targetDirection.y + targetDirection.z * targetDirection.z));
+        // Calculate distance from cursor to pyramid
+        const pyramidPos = cube.pyramidMesh.position;
+        const distanceX = mouseWorldX - pyramidPos.x;
+        const distanceY = mouseWorldY - pyramidPos.y;
+        const distance = Math.sqrt(distanceX * distanceX + distanceY * distanceY);
         
-        // Add spinning animation on top of the base rotation
-        cube.pyramidMesh.rotation.x = baseRotationX + Math.sin(Date.now() * 0.002) * 0.3;
-        cube.pyramidMesh.rotation.y = baseRotationY + Math.cos(Date.now() * 0.003) * 0.3;
-        cube.pyramidMesh.rotation.z = Math.sin(Date.now() * 0.001) * 0.2;
+        // Define touch threshold (very close distance for touching)
+        const touchThreshold = 1.0; // Much smaller threshold for touching
+        const maxJiggle = 0.4; // Increased jiggle intensity
+        
+        // Calculate jiggle intensity based on touch proximity
+        const jiggleIntensity = distance < touchThreshold ? 1 : 0; // Binary: touching or not
+        
+        if (jiggleIntensity > 0) {
+            // Apply intense jelly-like jiggling animation when touching
+            const time = Date.now() * 0.015;
+            const fastTime = Date.now() * 0.03;
+            
+            // Intense jiggle rotation with varying frequencies for jelly effect
+            cube.pyramidMesh.rotation.x = Math.sin(time + index * 0.5) * maxJiggle;
+            cube.pyramidMesh.rotation.y = Math.cos(fastTime + index * 0.3) * maxJiggle;
+            cube.pyramidMesh.rotation.z = Math.sin(time * 1.5 + index * 0.8) * maxJiggle;
+            
+            // Add intense scale jiggling for more jelly-like effect
+            const scaleJiggle = 1 + Math.sin(fastTime + index) * 0.15;
+            cube.pyramidMesh.scale.set(1.5 * scaleJiggle, 1.5 * scaleJiggle, 1.5 * scaleJiggle);
+        } else {
+            // Normal spinning animation when not touching
+            cube.pyramidMesh.rotation.x += 0.01;
+            cube.pyramidMesh.rotation.y += 0.02;
+            cube.pyramidMesh.rotation.z += 0.005;
+            
+            // Reset scale to normal
+            cube.pyramidMesh.scale.set(1.5, 1.5, 1.5);
+        }
         
         // Balls fade away while maintaining their size
         cube.ballMesh.scale.set(1.2, 1.2, 1.2);

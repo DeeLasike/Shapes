@@ -14,6 +14,9 @@ function init() {
     // Add lighting
     addLighting(scene);
     
+    // Add colorful swirly background
+    addColorfulBackground(scene);
+    
     // Create geometries
     const { geometry, materials } = createGeometry();
     const { ballGeometry, pyramidGeometry } = createShapeGeometries();
