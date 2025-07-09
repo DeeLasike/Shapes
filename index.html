@@ -90,9 +90,6 @@
         // Create ball geometry for floating balls transformation
         ballGeometry = new THREE.SphereGeometry(0.5, 16, 16);
 
-        // Create pyramid geometry for flying pyramids
-        const pyramidGeometry = new THREE.ConeGeometry(0.8, 1.6, 4); // 4 sides make it a pyramid - bigger size
-
         // Create Rubik's cube structure (without right side cubes)
         function createRubiksCube() {
             const cubeSize = 1.02; // Slightly larger for overlap and perfect sticking
@@ -127,9 +124,6 @@
                         // Calculate floating up position
                         cube.floatingUpPosition = calculateFloatingUpPosition(cubeIndex);
                         
-                        // Calculate pyramid corner position
-                        cube.pyramidCornerPosition = calculatePyramidCornerPosition(cubeIndex);
-                        
                         // Create ball mesh for transformation - use same color as cube
                         const ballMat = new THREE.MeshLambertMaterial({ 
                             color: cubeMat[0].color // Use the same color as the cube's first material
@@ -137,14 +131,6 @@
                         cube.ballMesh = new THREE.Mesh(ballGeometry, ballMat);
                         cube.ballMesh.visible = false;
                         scene.add(cube.ballMesh);
-                        
-                        // Create pyramid mesh for transformation - use same color as cube
-                        const pyramidMat = new THREE.MeshLambertMaterial({ 
-                            color: cubeMat[0].color // Use the same color as the cube's first material
-                        });
-                        cube.pyramidMesh = new THREE.Mesh(pyramidGeometry, pyramidMat);
-                        cube.pyramidMesh.visible = false;
-                        scene.add(cube.pyramidMesh);
                         
                         cube.visible = false;
                         
@@ -226,27 +212,6 @@
             );
         }
 
-        // Calculate pyramid positions (bottom right corner)
-        function calculatePyramidCornerPosition(index) {
-            // Position pyramids starting from bottom right corner of screen
-            const screenPosX = window.innerWidth / 2 * 0.9; // Right side of screen
-            const screenPosY = -window.innerHeight / 2 * 0.9; // Bottom of screen
-            
-            // Convert screen coordinates to world coordinates
-            const vector = new THREE.Vector3(screenPosX, screenPosY, 0);
-            vector.unproject(camera);
-            
-            // Create a more spread out cluster
-            const offsetX = (index % 3) * 2.0 - 2; // 3 pyramids per row, more spacing
-            const offsetY = Math.floor(index / 3) * 2.0; // Stack rows vertically with more spacing
-            
-            return new THREE.Vector3(
-                vector.x + offsetX,
-                vector.y + offsetY,
-                (Math.random() - 0.5) * 4 // Add some depth variation
-            );
-        }
-
         createRubiksCube();
 
         // Add lighting
@@ -314,8 +279,7 @@
                 const transformProgress = Math.min((scrollProgress - 0.05) / 0.20, 1); // Rubik's cube phase (0.05 to 0.25)
                 const pyramidProgress = Math.max(0, Math.min(1, (scrollProgress - 0.25) / 0.20)); // Pyramid phase (0.25 to 0.45)
                 const ballProgress = Math.max(0, Math.min(1, (scrollProgress - 0.45) / 0.20)); // Ball phase (0.45 to 0.65)
-                const floatingUpProgress = Math.max(0, Math.min(1, (scrollProgress - 0.65) / 0.15)); // Floating up phase (0.65 to 0.80)
-                const pyramidCornerProgress = Math.max(0, Math.min(1, (scrollProgress - 0.80) / 0.20)); // Pyramid corner phase (0.80 to 1.00)
+                const floatingUpProgress = Math.max(0, Math.min(1, (scrollProgress - 0.65) / 0.35)); // Floating up phase (0.65 to 1.00)
                 
                 // Scale down the main cube
                 const mainCubeScale = 1 - (transformProgress * 0.4);
@@ -331,42 +295,10 @@
                     
                     // Determine current target position based on scroll phase
                     let currentTargetPosition;
-                    if (pyramidCornerProgress > 0) {
-                        // Pyramid corner transformation phase
-                        cube.visible = false; // Hide cubes
-                        cube.ballMesh.visible = false; // Hide balls (they floated up)
-                        cube.pyramidMesh.visible = true; // Show pyramids
-                        
-                        // Interpolate pyramids flying from bottom right to center
-                        currentTargetPosition = new THREE.Vector3();
-                        const centerPosition = new THREE.Vector3(
-                            (Math.random() - 0.5) * 8, // More spread out final positions
-                            (Math.random() - 0.5) * 6,
-                            (Math.random() - 0.5) * 8
-                        );
-                        currentTargetPosition.lerpVectors(cube.pyramidCornerPosition, centerPosition, pyramidCornerProgress);
-                        
-                        // Position pyramids
-                        cube.pyramidMesh.position.copy(currentTargetPosition);
-                        
-                        // Add slower spinning animation to pyramids
-                        cube.pyramidMesh.rotation.x += 0.01; // Reduced rotation speed
-                        cube.pyramidMesh.rotation.y += 0.015; // Reduced rotation speed
-                        cube.pyramidMesh.rotation.z += 0.008; // Reduced rotation speed
-                        
-                        // Scale pyramids as they fly in - bigger scale
-                        const pyramidScale = pyramidCornerProgress * 2.0; // Bigger final size
-                        cube.pyramidMesh.scale.set(pyramidScale, pyramidScale, pyramidScale);
-                        
-                        // Fade in pyramids
-                        cube.pyramidMesh.material.opacity = pyramidCornerProgress;
-                        cube.pyramidMesh.material.transparent = true;
-                        
-                    } else if (floatingUpProgress > 0) {
+                    if (floatingUpProgress > 0) {
                         // Floating up phase - balls float up and fade out
                         cube.visible = false; // Hide cubes
                         cube.ballMesh.visible = true; // Show balls
-                        cube.pyramidMesh.visible = false; // Hide pyramids
                         
                         // Interpolate balls floating up from their current position
                         currentTargetPosition = new THREE.Vector3();
@@ -437,9 +369,6 @@
                         currentTargetPosition = new THREE.Vector3();
                         currentTargetPosition.lerpVectors(cube.targetPosition, cube.pyramidPosition, pyramidProgress);
                     } else {
-                        // Hide pyramids and reset balls in non-special phases
-                        cube.pyramidMesh.visible = false;
-                        
                         // Show cubes, hide balls
                         cube.ballMesh.visible = false;
                         
@@ -453,7 +382,7 @@
                     }
                     
                     // Animate cube position (always animate, but scale determines visibility)
-                    if (ballProgress === 0 && floatingUpProgress === 0 && pyramidCornerProgress === 0) {
+                    if (ballProgress === 0 && floatingUpProgress === 0) {
                         cube.position.lerpVectors(cube.initialPosition, currentTargetPosition, adjustedProgress);
                         
                         // Animate scale - now starts from 0 and scales to 1 (same size as main cube)
@@ -466,7 +395,7 @@
                             cube.rotation.y = mainCube.rotation.y + (pyramidProgress * 0.3);
                         }
                     } else {
-                        // During ball/floating/pyramid transition, sync rotation with main cube
+                        // During ball/floating transition, sync rotation with main cube
                         if (!isSpinning) {
                             cube.rotation.x = mainCube.rotation.x + (pyramidProgress * 0.5);
                             cube.rotation.y = mainCube.rotation.y + (pyramidProgress * 0.3);
@@ -479,12 +408,11 @@
                 const pyramidCameraZ = baseCameraZ + (pyramidProgress * 2);
                 const ballCameraZ = pyramidCameraZ + (ballProgress * 6);
                 const floatingUpCameraZ = ballCameraZ + (floatingUpProgress * 4);
-                const pyramidCornerCameraZ = floatingUpCameraZ + (pyramidCornerProgress * 8); // Move camera further back for bigger pyramids
-                camera.position.z += (pyramidCornerCameraZ - camera.position.z) * 0.02;
+                camera.position.z += (floatingUpCameraZ - camera.position.z) * 0.02;
                 
-                // Move main cube to pyramid top when pyramid forms, or hide it during ball/floating/pyramid phases
-                if (ballProgress > 0 || floatingUpProgress > 0 || pyramidCornerProgress > 0) {
-                    // Hide main cube during ball, floating up, and pyramid corner phases
+                // Move main cube to pyramid top when pyramid forms, or hide it during ball/floating phases
+                if (ballProgress > 0 || floatingUpProgress > 0) {
+                    // Hide main cube during ball and floating up phases
                     mainCube.visible = false;
                 } else {
                     mainCube.visible = true;
@@ -505,9 +433,8 @@
                         const delay = index * 0.02;
                         const retreatProgress = Math.max(0, Math.min(1, (0.05 - scrollProgress + delay) / 0.05));
                         
-                        // Hide balls and pyramids, show cubes
+                        // Hide balls only, show cubes
                         cube.ballMesh.visible = false;
-                        cube.pyramidMesh.visible = false;
                         cube.visible = true;
                         
                         // Reset opacity and transparency
