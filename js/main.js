@@ -28,6 +28,9 @@ function init() {
     // Create Rubik's cube structure
     rubiksCubes = createRubiksCube(scene, materials, ballGeometry, pyramidGeometry);
     
+    // Initialize text system for shape titles
+    initTextSystem();
+    
     // Setup event listeners
     setupMouseInteraction();
     setupScrollInteraction();
@@ -40,6 +43,9 @@ function init() {
 // Main animation loop
 function animate() {
     requestAnimationFrame(animate);
+    
+    // Update cached time values for performance optimization
+    updateCachedTimeValues();
     
     // Calculate animation phases
     const phases = calculateAnimationPhases(scrollProgress);
@@ -73,6 +79,9 @@ function animate() {
         // Handle main cube visibility and position
         handleMainCubePhases(mainCube, phases);
         
+        // Update shape title text
+        updateShapeTitle(phases);
+        
     } else {
         // When scrolling back up, animate cubes back to initial spread positions
         handleRetreatAnimation(rubiksCubes, scrollProgress);
@@ -83,6 +92,9 @@ function animate() {
         
         // Reset camera position
         camera.position.z += (5 - camera.position.z) * 0.05;
+        
+        // Update shape title text
+        updateShapeTitle(calculateAnimationPhases(scrollProgress));
     }
     
     // Apply mouse interaction to camera

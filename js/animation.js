@@ -4,6 +4,25 @@ let scrollProgress = 0;
 let rubiksCubes = [];
 let mainCube;
 
+// Text rendering variables
+let textMesh = null;
+let textGeometry = null;
+let textMaterial = null;
+let fontLoader = null;
+let loadedFont = null;
+let currentDisplayedText = "CUBE";
+let targetText = "CUBE";
+let titleFadeProgress = 0; // 0 = fully visible, 1 = fully faded out
+let titleTransitioning = false;
+
+// Performance optimization variables
+let lastTime = 0;
+let deltaTime = 0;
+let cachedTime = 0;
+let cachedFastTime = 0;
+let cachedSlowTime = 0; // For slower color transitions
+let frameCount = 0;
+
 // Animation phases and progress calculations
 function calculateAnimationPhases(scrollProgress) {
     const transformProgress = Math.min((scrollProgress - 0.05) / 0.30, 1); // Rubik's cube phase (0.05 to 0.35) - increased from 0.20
@@ -19,7 +38,7 @@ function animateMainCube(mainCube, isSpinning) {
     if (isSpinning) {
         mainCube.rotation.x += 0.01;
         mainCube.rotation.y += 0.01;
-        mainCube.position.y = Math.sin(Date.now() * 0.001) * 0.3;
+        mainCube.position.y = Math.sin(cachedTime) * 0.3;
     }
 }
 
@@ -40,8 +59,9 @@ function animateCube(cube, index, phases, adjustedProgress) {
         cube.pyramidMesh.position.copy(cube.ballPosition);
         
         // Add floating animation to both
-        cube.ballMesh.position.y += Math.sin(Date.now() * 0.001 + index * 0.5) * 0.5;
-        cube.pyramidMesh.position.y += Math.sin(Date.now() * 0.001 + index * 0.5) * 0.5;
+        const floatOffset = Math.sin(cachedTime + index * 0.5) * 0.5;
+        cube.ballMesh.position.y += floatOffset;
+        cube.pyramidMesh.position.y += floatOffset;
         
         // Make pyramids jiggle like jelly when cursor is touching them
         // Convert mouse screen coordinates to world coordinates
@@ -63,16 +83,16 @@ function animateCube(cube, index, phases, adjustedProgress) {
         
         if (jiggleIntensity > 0) {
             // Apply intense jelly-like jiggling animation when touching
-            const time = Date.now() * 0.015;
-            const fastTime = Date.now() * 0.03;
+            const jiggleTime = cachedTime * 15; // Cached version of Date.now() * 0.015
+            const jiggleFastTime = cachedTime * 30; // Cached version of Date.now() * 0.03
             
             // Intense jiggle rotation with varying frequencies for jelly effect
-            cube.pyramidMesh.rotation.x = Math.sin(time + index * 0.5) * maxJiggle;
-            cube.pyramidMesh.rotation.y = Math.cos(fastTime + index * 0.3) * maxJiggle;
-            cube.pyramidMesh.rotation.z = Math.sin(time * 1.5 + index * 0.8) * maxJiggle;
+            cube.pyramidMesh.rotation.x = Math.sin(jiggleTime + index * 0.5) * maxJiggle;
+            cube.pyramidMesh.rotation.y = Math.cos(jiggleFastTime + index * 0.3) * maxJiggle;
+            cube.pyramidMesh.rotation.z = Math.sin(jiggleTime * 1.5 + index * 0.8) * maxJiggle;
             
             // Add intense scale jiggling for more jelly-like effect
-            const scaleJiggle = 1 + Math.sin(fastTime + index) * 0.15;
+            const scaleJiggle = 1 + Math.sin(jiggleFastTime + index) * 0.15;
             cube.pyramidMesh.scale.set(1.5 * scaleJiggle, 1.5 * scaleJiggle, 1.5 * scaleJiggle);
         } else {
             // Normal spinning animation when not touching
@@ -111,7 +131,7 @@ function animateCube(cube, index, phases, adjustedProgress) {
         // Sync positions for smooth morphing
         cube.position.lerpVectors(cube.initialPosition, currentTargetPosition, adjustedProgress);
         cube.ballMesh.position.copy(cube.position);
-        cube.ballMesh.position.y += Math.sin(Date.now() * 0.001 + index * 0.5) * 0.5 * ballProgress;
+        cube.ballMesh.position.y += Math.sin(cachedTime + index * 0.5) * 0.5 * ballProgress;
         
         // Add rotation to balls
         cube.ballMesh.rotation.x += 0.02 * ballProgress;
@@ -182,6 +202,212 @@ function animateCube(cube, index, phases, adjustedProgress) {
     }
 }
 
+// Initialize text system
+function initTextSystem() {
+    fontLoader = new THREE.FontLoader();
+    
+    // Load a font (using Three.js built-in font)
+    fontLoader.load('https://threejs.org/examples/fonts/helvetiker_bold.typeface.json', function (font) {
+        loadedFont = font;
+        currentDisplayedText = "CUBE";
+        targetText = "CUBE";
+        createTextMesh("CUBE");
+    });
+}
+
+// Create bubbly text mesh
+function createTextMesh(text) {
+    if (!loadedFont) return;
+    
+    // Remove existing text mesh
+    if (textMesh) {
+        scene.remove(textMesh);
+        if (textGeometry) textGeometry.dispose();
+        if (textMaterial) textMaterial.dispose();
+    }
+    
+    // Create text geometry
+    textGeometry = new THREE.TextGeometry(text, {
+        font: loadedFont,
+        size: 8,
+        height: 1.5,
+        curveSegments: 12,
+        bevelEnabled: true,
+        bevelThickness: 0.3,
+        bevelSize: 0.2,
+        bevelOffset: 0,
+        bevelSegments: 8
+    });
+    
+    // Center the text
+    textGeometry.computeBoundingBox();
+    const centerOffsetX = -0.5 * (textGeometry.boundingBox.max.x - textGeometry.boundingBox.min.x);
+    const centerOffsetY = -0.5 * (textGeometry.boundingBox.max.y - textGeometry.boundingBox.min.y);
+    textGeometry.translate(centerOffsetX, centerOffsetY, 0);
+    
+    // Create enhanced bubbly material with dynamic properties
+    textMaterial = new THREE.MeshPhongMaterial({
+        color: 0xffffff,
+        transparent: true,
+        opacity: 0.3,
+        shininess: 120,
+        specular: 0x444444,
+        emissive: 0x111111, // Add subtle glow
+        emissiveIntensity: 0.2
+    });
+    
+    // Create text mesh
+    textMesh = new THREE.Mesh(textGeometry, textMaterial);
+    textMesh.position.set(0, 0, -20); // Position behind shapes
+    scene.add(textMesh);
+}
+
+// Update text based on current animation phase
+function updateShapeTitle(phases) {
+    if (!loadedFont) return;
+    
+    const { transformProgress, pyramidProgress, ballProgress, pyramidTransformProgress } = phases;
+    
+    let newTargetText = "CUBE";
+    let baseOpacity = 0.3;
+    
+    if (pyramidTransformProgress > 0) {
+        newTargetText = "PYRAMID";
+        baseOpacity = 0.4;
+    } else if (ballProgress > 0) {
+        newTargetText = "SPHERE";
+        baseOpacity = 0.4;
+    }
+    
+    // Check if we need to start a transition
+    if (newTargetText !== targetText) {
+        targetText = newTargetText;
+        titleTransitioning = true;
+        titleFadeProgress = 0;
+    }
+    
+    // Handle title transitions
+    if (titleTransitioning) {
+        titleFadeProgress += 0.05; // Fade speed
+        
+        if (titleFadeProgress >= 1) {
+            // Fade out complete, switch to new text
+            currentDisplayedText = targetText;
+            createTextMesh(currentDisplayedText);
+            titleFadeProgress = 1;
+        }
+        
+        if (titleFadeProgress >= 2) {
+            // Fade in complete, transition finished
+            titleTransitioning = false;
+            titleFadeProgress = 0;
+        }
+    }
+    
+    // Ensure we have the correct text mesh
+    if (textMesh && textMesh.userData.currentText !== currentDisplayedText) {
+        createTextMesh(currentDisplayedText);
+        textMesh.userData.currentText = currentDisplayedText;
+    }
+    
+    if (textMesh) {
+        // Use cached time values for better performance
+        const time = cachedTime;
+        const fastTime = cachedFastTime;
+        
+        // Pre-calculate common sine/cosine values to avoid redundant calculations
+        const sin08 = Math.sin(time * 0.8);
+        const sin13 = Math.sin(time * 1.3);
+        const sin05 = Math.sin(time * 0.5);
+        const sin12 = Math.sin(time * 1.2);
+        
+        // Bubbly animation with more variation
+        const bubbleScale = 1 + sin08 * 0.05 + sin13 * 0.03;
+        textMesh.scale.set(bubbleScale, bubbleScale, bubbleScale);
+        
+        // Enhanced floating animation with multiple wave patterns
+        const floatY = sin05 * 0.8 + sin12 * 0.3;
+        textMesh.position.y = floatY;
+        
+        // More dynamic rotation with wobble
+        const rotationZ = Math.sin(time * 0.3) * 0.05 + Math.sin(time * 0.7) * 0.02;
+        textMesh.rotation.z = rotationZ;
+        
+        // Add gentle X and Y rotation for 3D effect
+        textMesh.rotation.x = Math.sin(time * 0.4) * 0.03;
+        textMesh.rotation.y = Math.sin(time * 0.6) * 0.02;
+        
+        // Calculate opacity with fade transition
+        let targetOpacity = baseOpacity;
+        if (titleTransitioning) {
+            if (titleFadeProgress <= 1) {
+                // Fade out phase
+                targetOpacity = baseOpacity * (1 - titleFadeProgress);
+            } else {
+                // Fade in phase
+                targetOpacity = baseOpacity * (titleFadeProgress - 1);
+            }
+        }
+        
+        // Animate opacity
+        textMaterial.opacity += (targetOpacity - textMaterial.opacity) * 0.1;
+        
+        // Enhanced colorful animation with multiple color cycles
+        // Only update colors every few frames for better performance
+        if (frameCount % 2 === 0) {
+            // Use slower time for more gradual color transitions
+            const slowTime = cachedSlowTime;
+            
+            // Pre-calculate hue values with slower cycling
+            const hue1 = (slowTime * 0.4) % 1; // Reduced from 0.8
+            const hue2 = (slowTime * 0.25 + 0.3) % 1; // Reduced from 0.5
+            const hue3 = (slowTime * 0.6 + 0.6) % 1; // Reduced from 1.2
+            
+            // Mix multiple hue cycles for more vibrant colors
+            const mixedHue = (hue1 + hue2 * 0.3 + hue3 * 0.2) % 1;
+            
+            // Dynamic saturation and lightness with slower animation
+            const saturation = 0.8 + Math.sin(slowTime * 1.0) * 0.2; // Reduced from 2.0
+            const lightness = 0.6 + Math.sin(slowTime * 0.75 + 1) * 0.2; // Reduced from 1.5
+            
+            textMaterial.color.setHSL(mixedHue, saturation, lightness);
+            
+            // Enhanced specular highlights with slower shimmer
+            const specularIntensity = 0.5 + Math.sin(slowTime * 1.5) * 0.3; // Reduced from 3.0
+            textMaterial.specular.setHSL((mixedHue + 0.5) % 1, 0.8, specularIntensity);
+            
+            // Adjust shininess with slower reflections
+            textMaterial.shininess = 80 + Math.sin(slowTime * 1.25) * 40; // Reduced from 2.5
+            
+            // Add glowing emissive color animation with slower pulse
+            const emissiveHue = (mixedHue + 0.2) % 1;
+            const emissiveIntensity = 0.1 + Math.sin(slowTime * 1.25) * 0.1; // Reduced from 2.5
+            textMaterial.emissive.setHSL(emissiveHue, 0.6, emissiveIntensity);
+            textMaterial.emissiveIntensity = emissiveIntensity;
+        }
+    }
+}
+
+// Performance optimization: Update cached time values
+function updateCachedTimeValues() {
+    const currentTime = Date.now();
+    deltaTime = currentTime - lastTime;
+    lastTime = currentTime;
+    cachedTime = currentTime * 0.001;
+    cachedFastTime = cachedTime * 0.3;
+    cachedSlowTime = cachedTime * 0.1; // Much slower time for color transitions
+    frameCount++;
+}
+
+// Optimize geometry calculations by reducing redundant operations
+function optimizedLerpVectors(target, from, to, progress) {
+    // Only perform lerp if progress has changed significantly
+    if (Math.abs(progress - (target.userData.lastProgress || 0)) > 0.001) {
+        target.lerpVectors(from, to, progress);
+        target.userData.lastProgress = progress;
+    }
+}
+
 // Animate camera position based on current phase
 function animateCamera(camera, phases) {
     const { transformProgress, pyramidProgress, ballProgress, pyramidTransformProgress } = phases;
@@ -205,7 +431,7 @@ function handleMainCubePhases(mainCube, phases) {
         if (pyramidProgress > 0) {
             const pyramidTopPosition = new THREE.Vector3(0, 1, 0);
             mainCube.position.lerpVectors(
-                new THREE.Vector3(0, Math.sin(Date.now() * 0.001) * 0.3, 0),
+                new THREE.Vector3(0, Math.sin(cachedTime) * 0.3, 0),
                 pyramidTopPosition,
                 pyramidProgress
             );
